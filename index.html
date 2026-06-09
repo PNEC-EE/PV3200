@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fronus PV3200 Inverter Telemetry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12">
+
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-500 text-slate-950 p-2.5 rounded-xl shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-solar-panel text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">FRONUS PV3200</h1>
+                    <p class="text-xs text-slate-400">Live Telemetry System</p>
+                </div>
+            </div>
+            <div id="status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 transition-all duration-300">
+                <span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+                Connecting to Broker...
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col justify-between">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Current Operational State</span>
+                    <div id="Inverter_Mode" class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
+                        Waiting...
+                    </div>
+                </div>
+                <div class="mt-6 flex items-center justify-between text-xs text-slate-400 border-t border-slate-800 pt-4">
+                    <span>Topic Prefix:</span>
+                    <code class="bg-slate-950 px-2 py-1 rounded text-amber-400 text-[10px]">fronus_pnec_3200_x92f/inverter/</code>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-2 bg-slate-800/40 rounded-2xl p-6 border border-slate-800/80 shadow-xl">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-4">System Flags</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="binary-container">
+                    </div>
+            </div>
+        </div>
+
+        <div class="space-y-10">
+            
+            <div>
+                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-charging-station text-amber-500"></i> Generation & Storage
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">PV Input Power</span><i class="fa-solid fa-bolt text-amber-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="PV_Input_Power">--</span> <span class="text-sm font-normal text-slate-400">W</span></div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">PV Input Voltage</span><i class="fa-solid fa-car-battery text-amber-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="PV_Input_Voltage">--</span> <span class="text-sm font-normal text-slate-400">V</span></div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">Battery Voltage</span><i class="fa-solid fa-battery-three-quarters text-emerald-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="Battery_Voltage">--</span> <span class="text-sm font-normal text-slate-400">V</span></div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">Battery Capacity</span><i class="fa-solid fa-circle-info text-emerald-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="Battery_Capacity">--</span> <span class="text-sm font-normal text-slate-400">%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-house-lightning text-sky-500"></i> Grid & Load Metrics
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">Grid Voltage</span><i class="fa-solid fa-tower-cell text-sky-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="Grid_Voltage">--</span> <span class="text-sm font-normal text-slate-400">V</span></div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">Output Voltage</span><i class="fa-solid fa-plug text-sky-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="AC_Output_Voltage">--</span> <span class="text-sm font-normal text-slate-400">V</span></div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">Output Active Power</span><i class="fa-solid fa-gauge-high text-rose-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="Output_Active_Power">--</span> <span class="text-sm font-normal text-slate-400">W</span></div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all">
+                        <div class="flex justify-between items-start mb-3"><span class="text-sm text-slate-400 font-medium">Load Utilization</span><i class="fa-solid fa-chart-pie text-rose-400"></i></div>
+                        <div class="text-2xl font-bold"><span id="Output_Load_Percent">--</span> <span class="text-sm font-normal text-slate-400">%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-microchip text-purple-500"></i> Internal Registers & Diagnostics
+                </h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">Grid Freq</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Grid_Frequency">--</span><span class="text-xs font-normal text-slate-500 ml-1">Hz</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">Output Freq</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="AC_Output_Frequency">--</span><span class="text-xs font-normal text-slate-500 ml-1">Hz</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">Apparent Power</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Output_Apparent_Power">--</span><span class="text-xs font-normal text-slate-500 ml-1">VA</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">DC Bus Volt</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Bus_Voltage">--</span><span class="text-xs font-normal text-slate-500 ml-1">V</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">Inverter Temp</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Inverter_Temperature">--</span><span class="text-xs font-normal text-slate-500 ml-1">°C</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">SCC Bat Volt</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Battery_Voltage_from_SCC">--</span><span class="text-xs font-normal text-slate-500 ml-1">V</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">Charge Current</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Battery_Charging_Current">--</span><span class="text-xs font-normal text-slate-500 ml-1">A</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">Dischg Current</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="Battery_Discharging_Current">--</span><span class="text-xs font-normal text-slate-500 ml-1">A</span></div>
+                    </div>
+                    <div class="bg-slate-800/30 border border-slate-800/60 rounded-xl p-4 text-center">
+                        <span class="text-xs text-slate-400 block mb-1">PV Input Current</span>
+                        <div class="text-lg font-semibold text-slate-200"><span id="PV_Input_Current">--</span><span class="text-xs font-normal text-slate-500 ml-1">A</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Mapping friendly IDs to raw ESPHome sensor friendly name strings
+        const sensorMap = {
+            "grid_voltage": "Grid_Voltage",
+            "grid_frequency": "Grid_Frequency",
+            "ac_output_voltage": "AC_Output_Voltage",
+            "ac_output_frequency": "AC_Output_Frequency",
+            "ac_output_apparent_power": "Output_Apparent_Power",
+            "ac_output_active_power": "Output_Active_Power",
+            "output_load_percent": "Output_Load_Percent",
+            "bus_voltage": "Bus_Voltage",
+            "battery_voltage": "Battery_Voltage",
+            "battery_charging_current": "Battery_Charging_Current",
+            "battery_capacity_percent": "Battery_Capacity",
+            "battery_discharge_current": "Battery_Discharging_Current",
+            "inverter_heat_sink_temperature": "Inverter_Temperature",
+            "pv_input_current_for_battery": "PV_Input_Current",
+            "pv_input_voltage": "PV_Input_Voltage",
+            "pv_charging_power": "PV_Input_Power",
+            "battery_voltage_scc": "Battery_Voltage_from_SCC",
+            "device_mode": "Inverter_Mode"
+        };
+
+        const binaryNames = {
+            "add_sbu_priority_version": "SBU Priority",
+            "configuration_status": "Config Status",
+            "scc_firmware_version": "SCC FW Updated",
+            "load_status": "Load Connected",
+            "battery_voltage_to_steady_while_charging": "Bat Steady",
+            "charging_status": "Charging",
+            "scc_charging_status": "SCC Charging",
+            "ac_charging_status": "AC Charging"
+        };
+
+        // Initialize Binary Card placeholders
+        const binContainer = document.getElementById('binary-container');
+        Object.keys(binaryNames).forEach(key => {
+            binContainer.innerHTML += `
+                <div id="bin_${key}" class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex flex-col justify-between h-20 transition-all duration-300 opacity-60">
+                    <span class="text-[11px] font-medium text-slate-400 truncate">${binaryNames[key]}</span>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider status-text">OFFLINE</span>
+                </div>
+            `;
+        });
+
+        // Connect over Secure WebSockets (WSS) required by GitHub Pages (HTTPS)
+        const brokerUrl = "wss://broker.hivemq.com:8884/mqtt";
+        const baseTopic = "fronus_pnec_3200_x92f/inverter";
+        
+        console.log("Connecting to HiveMQ Public WebSocket broker...");
+        const client = mqtt.connect(brokerUrl, {
+            clientId: 'web_dashboard_' + Math.random().toString(16).substr(2, 8)
+        });
+
+        const statusBadge = document.getElementById('status-badge');
+
+        client.on('connect', () => {
+            statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 transition-all duration-300";
+            statusBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-emerald-400 shadow-md shadow-emerald-400"></span> Connected Live`;
+            
+            // Subscribe to all components under the dashboard hierarchy
+            client.subscribe(`${baseTopic}/#`, (err) => {
+                if (!err) console.log(`Successfully Subscribed to: ${baseTopic}/#`);
+            });
+        });
+
+        client.on('disconnect', () => {
+            statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 transition-all duration-300";
+            statusBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-rose-400"></span> Disconnected`;
+        });
+
+        client.on('message', (topic, message) => {
+            const rawPayload = message.toString().trim();
+            
+            // Extract type and sub-key from string: Example "fronus_pnec_3200_x92f/inverter/sensor/grid_voltage/state"
+            const parts = topic.split('/');
+            if (parts.length < 5) return;
+            
+            const componentType = parts[2]; // e.g., "sensor", "text_sensor", "binary_sensor"
+            const sensorKey = parts[3];      // e.g., "grid_voltage"
+            
+            // Process numeric and text nodes
+            if (componentType === 'sensor' || componentType === 'text_sensor') {
+                const targetId = sensorMap[sensorKey];
+                if (targetId) {
+                    const el = document.getElementById(targetId);
+                    if (el) el.innerText = rawPayload;
+                }
+            }
+            
+            // Process dynamic UI status switches for binary nodes
+            if (componentType === 'binary_sensor') {
+                const card = document.getElementById(`bin_${sensorKey}`);
+                if (card) {
+                    const textEl = card.querySelector('.status-text');
+                    if (rawPayload.toUpperCase() === 'ON' || rawPayload === 'true' || rawPayload === '1') {
+                        card.className = "bg-emerald-950/40 border-emerald-500/30 text-emerald-300 rounded-xl p-3 flex flex-col justify-between h-20 transition-all duration-300 shadow-lg shadow-emerald-950/20";
+                        textEl.innerText = "ACTIVE";
+                        textEl.className = "text-xs font-bold text-emerald-400 uppercase tracking-wider status-text";
+                    } else {
+                        card.className = "bg-slate-900/80 border-slate-800 text-slate-400 rounded-xl p-3 flex flex-col justify-between h-20 transition-all duration-300";
+                        textEl.innerText = "INACTIVE";
+                        textEl.className = "text-xs font-bold text-slate-500 uppercase tracking-wider status-text";
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
