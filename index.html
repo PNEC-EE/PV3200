@@ -151,7 +151,7 @@
         </div>
     </main>
 
-    <script>
+   <script>
         // Mapping friendly IDs to raw ESPHome sensor friendly name strings
         const sensorMap = {
             "grid_voltage": "Grid_Voltage",
@@ -169,7 +169,7 @@
             "inverter_heat_sink_temperature": "Inverter_Temperature",
             "pv_input_current_for_battery": "PV_Input_Current",
             "pv_input_voltage": "PV_Input_Voltage",
-            "pv_charging_power": "PV_Input_Power",
+            "pv_charging_power": "PV_Input_Power", // Fixed: Matches the pipsolar register name
             "battery_voltage_scc": "Battery_Voltage_from_SCC",
             "device_mode": "Inverter_Mode"
         };
@@ -211,7 +211,6 @@
             statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 transition-all duration-300";
             statusBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-emerald-400 shadow-md shadow-emerald-400"></span> Connected Live`;
             
-            // Subscribe to all components under the dashboard hierarchy
             client.subscribe(`${baseTopic}/#`, (err) => {
                 if (!err) console.log(`Successfully Subscribed to: ${baseTopic}/#`);
             });
@@ -225,14 +224,12 @@
         client.on('message', (topic, message) => {
             const rawPayload = message.toString().trim();
             
-            // Extract type and sub-key from string: Example "fronus_pnec_3200_x92f/inverter/sensor/grid_voltage/state"
             const parts = topic.split('/');
             if (parts.length < 5) return;
             
-            const componentType = parts[2]; // e.g., "sensor", "text_sensor", "binary_sensor"
-            const sensorKey = parts[3];      // e.g., "grid_voltage"
+            const componentType = parts[2]; 
+            const sensorKey = parts[3];      
             
-            // Process numeric and text nodes
             if (componentType === 'sensor' || componentType === 'text_sensor') {
                 const targetId = sensorMap[sensorKey];
                 if (targetId) {
@@ -241,7 +238,6 @@
                 }
             }
             
-            // Process dynamic UI status switches for binary nodes
             if (componentType === 'binary_sensor') {
                 const card = document.getElementById(`bin_${sensorKey}`);
                 if (card) {
